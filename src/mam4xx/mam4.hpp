@@ -18,6 +18,7 @@
 #include <mam4xx/ndrop.hpp>
 #include <mam4xx/nucleation.hpp>
 #include <mam4xx/rename.hpp>
+#include <mam4xx/modal_aero_uptake.hpp>
 
 namespace mam4 {
 

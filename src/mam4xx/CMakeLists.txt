@@ -20,6 +20,7 @@ install(FILES
         rename.hpp
         utils.hpp
         ndrop.hpp
+        modal_aero_uptake.hpp
         vehkamaki2002.hpp
         wang2008.hpp
         DESTINATION include/mam4xx)
