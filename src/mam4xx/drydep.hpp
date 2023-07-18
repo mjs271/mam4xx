@@ -319,6 +319,103 @@ void modal_aero_gravit_settling_velocity(const int moment,
                                      vsc_dyn_atm, sig_part);
 }
 
+//---------------------------------------------------------------------------------
+// !DESCRIPTION:
+//
+// Calc aerodynamic resistance over oceans and sea ice from Seinfeld and Pandis,
+// p.963.
+//
+// Author: Natalie Mahowald
+// Code refactor: Hui Wan, 2023
+//---------------------------------------------------------------------------------
+KOKKOS_INLINE_FUNCTION
+void calcram(const Real landfrac, const Real icefrac, const Real ocnfrac,
+             const Real obklen, const Real ustar, const Real tair,
+             const Real pmid, const Real pdel, const Real ram1_in,
+             const Real fv_in, Real ram1_out, Real fv_out) {
+
+  static constexpr Real lndfrc_threshold =
+      0.000000001; // (BAD CONSTANT) fraction, unitless
+  static constexpr Real zzocn =
+      0.0001; // (BAD CONSTANT) Ocean aerodynamic roughness length
+  static constexpr Real zzsice =
+      0.0400; // (BAD CONSTANT) Sea ice aerodynamic roughness length
+  static constexpr Real xkar = 0.4; // (BAD CONSTANT) Von Karman constant
+  //---------------------------------------------------------------------------
+  // Friction velocity:
+  //  - If the grid cell has a land fraction larger than a threshold (~zero),
+  //    then use cam_in%fv.
+  //  - Otherwise, use the ustar calculated in the atmosphere.
+  //---------------------------------------------------------------------------
+  if (landfrac > lndfrc_threshold) {
+    fv_out = fv_in;
+  } else {
+    fv_out = ustar;
+  }
+
+  // fvitt -- fv == 0 causes a floating point exception in
+  // dry dep of sea salts and dust
+
+  if (fv_out == 0.0) {
+    fv_out = 1.e-12;
+  }
+
+  //-------------------------------------------------------------------
+  // Aerodynamic resistence
+  //-------------------------------------------------------------------
+
+  if (landfrac > lndfrc_threshold) {
+    // If the grid cell has a land fraction larger than a threshold (~zero),
+    // simply use cam_in%ram1
+    ram1_out = ram1_in;
+  } else {
+    // If the grid cell has a land fraction smaller than the threshold,
+    // calculate aerodynamic resistence
+
+    // calculate psi, psi0, temp
+    const Real zz =
+        pdel * Constants::r_gas_dry_air * tair / pmid / Constants::gravity /
+        2.0; // use half the layer height like Ganzefeld and Lelieveld, 1995
+
+    Real psi = 0.0;
+    Real psi0 = 0.0;
+    if (obklen != 0.0) {
+      psi = haero::min(haero::max(zz / obklen, -1.0), 1.0);
+      psi0 = haero::min(haero::max(zzocn / obklen, -1.0), 1.0);
+    }
+    Real temp = zz / zzocn;
+
+    // special treatment for ice-dominant cells
+    if (icefrac > 0.5) {
+      psi = 0.0;
+      if (obklen > 0.0) {
+        psi0 = haero::min(haero::max(zzsice / obklen, -1.0), 1.0);
+      }
+      temp = zz / zzsice;
+    }
+
+    // calculate aerodynamic resistence
+    if (psi > 0.0) {
+      ram1_out = 1.0 / xkar / ustar * (haero::log(temp) + 4.7 * (psi - psi0));
+    } else {
+      const Real nu = haero::pow((1.00 - 15.000 * psi), 0.25);
+      const Real nu0 = haero::pow(1.000 - 15.000 * psi0, 0.25);
+
+      if (ustar != 0.0) {
+        ram1_out =
+            1.0 / xkar / ustar *
+            (haero::log(temp) +
+             haero::log(
+                 ((haero::square(nu0) + 1.0) * haero::square(nu0 + 1.0)) /
+                 ((haero::square(nu) + 1.0) * haero::square(nu + 1.0))) +
+             2.0 * (haero::atan(nu) - haero::atan(nu0)));
+      } else {
+        ram1_out = 0.0;
+      }
+    }
+  }
+}
+
 } // namespace drydep
 
 } // namespace mam4
