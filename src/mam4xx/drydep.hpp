@@ -34,6 +34,9 @@ public:
   void init(const AeroConfig &aero_config,
             const Config &process_config = Config());
 
+  // The value of n_land_type is taken from mozart as defined in mo_drydep.F90
+  static constexpr int n_land_type = 11;
+
   // validate -- validates the given atmospheric state and prognostics against
   // assumptions made by this implementation, returning true if the states are
   // valid, false if not
@@ -152,6 +155,107 @@ Real gravit_settling_velocity(const Real particle_radius,
   const Real dispersion = haero::exp(2.0 * lnsig * lnsig);
 
   return gravit_settling_velocity * dispersion;
+}
+
+KOKKOS_INLINE_FUNCTION
+Real gamma(const int n_land_type) {
+  const Real gamma_array[DryDep::n_land_type] = {
+      0.56, 0.54, 0.54, 0.56, 0.56, 0.56, 0.50, 0.54, 0.54, 0.54, 0.54};
+  return gamma_array[n_land_type];
+}
+
+KOKKOS_INLINE_FUNCTION
+Real alpha(const int n_land_type) {
+  const Real alpha_array[DryDep::n_land_type] = {
+      1.50, 1.20, 1.20, 0.80, 1.00, 0.80, 100.0, 50.0, 2.0, 1.2, 50.0};
+  return alpha_array[n_land_type];
+}
+
+KOKKOS_INLINE_FUNCTION
+Real radius_collector(const int n_land_type) {
+  const Real radius_collector_array[DryDep::n_land_type] = {
+      10.0e-3, 3.5e-3, 3.5e-3,  5.1e-3, 2.0e-3, 5.0e-3,
+      -1.0e0,  -1.0e0, 10.0e-3, 3.5e-3, -1.0e+0};
+  return radius_collector_array[n_land_type];
+}
+
+KOKKOS_INLINE_FUNCTION
+void modal_aero_turb_drydep_velocity(const int moment,
+                                     Real fraction_landuse[DryDep::n_land_type],
+                                     const Real radius_max, const Real tair,
+                                     const Real pmid, const Real radius_part,
+                                     const Real density_part,
+                                     const Real sig_part, const Real fricvel,
+                                     const Real ram1, const Real vlc_grv,
+                                     const Real vlc_trb, const Real vlc_dry) {
+
+  /// TODO - figure out how/where we need to resolve
+
+  // Calculate size-INdependent thermokinetic properties of the air
+  const Real vsc_dyn_atm = air_dynamic_viscosity(tair);
+  const Real vsc_knm_atm = air_kinematic_viscosity(tair, pmid);
+
+  // Calculate the mean radius and Schmidt number of the moment
+  const Real radius_moment =
+      radius_for_moment(moment, sig_part, radius_part, radius_max);
+  const Real shm_nbr =
+      schmidt_number(tair, pmid, radius_moment, vsc_dyn_atm, vsc_knm_atm);
+
+  // Initialize deposition velocities averages over different land surface types
+  Real vlc_trb_wgtsum = 0.0;
+  Real vlc_dry_wgtsum = 0.0;
+
+  // Loop over different land surface types. Calculate deposition velocities of
+  // those different surface types. The overall deposition velocity of a grid
+  // cell is the area-weighted average of those land-type-specific velocities.
+  for (int lt = 0; lt < DryDep::n_land_type; ++lt) {
+
+    //----------------------------------------------------------------------
+    // Collection efficiency of deposition mechanism 1 - Brownian diffusion
+    //----------------------------------------------------------------------
+    const Real brownian = haero::pow(shm_nbr, (-gamma(lt)));
+
+    //----------------------------------------------------------------------
+    // Collection efficiency of deposition mechanism 2 - interception
+    //----------------------------------------------------------------------
+    Real interception = 0.0;
+    const Real rc = radius_collector(lt);
+    if (rc > 0.0) {
+      // vegetated surface
+      interception = 2.0 * haero::square(radius_moment / rc);
+    }
+
+    //----------------------------------------------------------------------
+    // Collection efficiency of deposition mechanism 3 - impaction
+    //----------------------------------------------------------------------
+    Real stk_nbr = 0.0;
+    if (rc > 0.0) {
+      // vegetated surface
+      stk_nbr = vlc_grv * fricvel / (Constants::gravity * rc);
+    } else {
+      // non-vegetated surface
+      stk_nbr = vlc_grv * fricvel * fricvel /
+                (Constants::gravity * vsc_knm_atm); //  SeP97 p.965
+    }
+
+    static constexpr Real beta =
+        2.0; // (BAD CONSTANT) empirical parameter $\beta$ in Eq. (7c) of Zhang
+             // L. et al. (2001)
+    const Real impaction =
+        haero::pow(stk_nbr / (alpha(lt) + stk_nbr),
+                   beta); // Eq. (7c) of Zhang L. et al.  (2001)
+
+    (void)brownian;
+    (void)interception;
+    (void)stk_nbr;
+    (void)impaction;
+  }
+  (void)vsc_dyn_atm;
+  (void)vsc_knm_atm;
+  (void)radius_moment;
+  (void)shm_nbr;
+  (void)vlc_trb_wgtsum;
+  (void)vlc_dry_wgtsum;
 }
 
 } // namespace drydep
