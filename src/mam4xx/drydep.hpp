@@ -294,6 +294,26 @@ void modal_aero_turb_drydep_velocity(const int moment,
 
 }
 
+//==========================================================================
+// Calculate particle velocity of gravitational settling
+//==========================================================================
+KOKKOS_INLINE_FUNCTION
+void modal_aero_gravit_settling_velocity(const int moment, const Real radius_max, const Real tair,
+const Real pmid, const Real radius_part, const Real density_part, const Real sig_part,
+Real vlc_grv){
+
+  const Real vsc_dyn_atm = air_dynamic_viscosity( tair );
+  
+  const Real radius_moment = radius_for_moment(moment, sig_part, radius_part, radius_max);
+
+  const Real slp_crc = slip_correction_factor(vsc_dyn_atm, pmid, tair, radius_part);
+
+  vlc_grv = gravit_settling_velocity( radius_moment, density_part,
+                                                  slp_crc, vsc_dyn_atm, sig_part);
+
+}
+
+
 } // namespace drydep
 
 } // namespace mam4
