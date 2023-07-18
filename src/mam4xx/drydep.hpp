@@ -180,6 +180,14 @@ Real radius_collector(const int n_land_type) {
 }
 
 KOKKOS_INLINE_FUNCTION
+int iwet(const int n_land_type){
+  const int iwet_array[DryDep::n_land_type] = {-1,  -1,   -1,   -1,   -1,  
+              -1,   1,   -1,    1,   -1,  
+              -1};
+  return iwet_array[n_land_type];
+}
+
+KOKKOS_INLINE_FUNCTION
 void modal_aero_turb_drydep_velocity(const int moment,
                                      Real fraction_landuse[DryDep::n_land_type],
                                      const Real radius_max, const Real tair,
@@ -187,7 +195,7 @@ void modal_aero_turb_drydep_velocity(const int moment,
                                      const Real density_part,
                                      const Real sig_part, const Real fricvel,
                                      const Real ram1, const Real vlc_grv,
-                                     const Real vlc_trb, const Real vlc_dry) {
+                                     Real vlc_trb, Real vlc_dry) {
 
   /// TODO - figure out how/where we need to resolve
 
@@ -210,52 +218,80 @@ void modal_aero_turb_drydep_velocity(const int moment,
   // cell is the area-weighted average of those land-type-specific velocities.
   for (int lt = 0; lt < DryDep::n_land_type; ++lt) {
 
-    //----------------------------------------------------------------------
-    // Collection efficiency of deposition mechanism 1 - Brownian diffusion
-    //----------------------------------------------------------------------
-    const Real brownian = haero::pow(shm_nbr, (-gamma(lt)));
+    const Real lnd_frc = fraction_landuse[lt];
 
-    //----------------------------------------------------------------------
-    // Collection efficiency of deposition mechanism 2 - interception
-    //----------------------------------------------------------------------
-    Real interception = 0.0;
-    const Real rc = radius_collector(lt);
-    if (rc > 0.0) {
-      // vegetated surface
-      interception = 2.0 * haero::square(radius_moment / rc);
+    if(lnd_frc != 0.0){
+      //----------------------------------------------------------------------
+      // Collection efficiency of deposition mechanism 1 - Brownian diffusion
+      //----------------------------------------------------------------------
+      const Real brownian = haero::pow(shm_nbr, (-gamma(lt)));
+
+      //----------------------------------------------------------------------
+      // Collection efficiency of deposition mechanism 2 - interception
+      //----------------------------------------------------------------------
+      Real interception = 0.0;
+      const Real rc = radius_collector(lt);
+      if (rc > 0.0) {
+        // vegetated surface
+        interception = 2.0 * haero::square(radius_moment / rc);
+      }
+
+      //----------------------------------------------------------------------
+      // Collection efficiency of deposition mechanism 3 - impaction
+      //----------------------------------------------------------------------
+      Real stk_nbr = 0.0;
+      if (rc > 0.0) {
+        // vegetated surface
+        stk_nbr = vlc_grv * fricvel / (Constants::gravity * rc);
+      } else {
+        // non-vegetated surface
+        stk_nbr = vlc_grv * fricvel * fricvel /
+                  (Constants::gravity * vsc_knm_atm); //  SeP97 p.965
+      }
+
+      static constexpr Real beta =
+          2.0; // (BAD CONSTANT) empirical parameter $\beta$ in Eq. (7c) of Zhang
+              // L. et al. (2001)
+      const Real impaction =
+          haero::pow(stk_nbr / (alpha(lt) + stk_nbr),
+                    beta); // Eq. (7c) of Zhang L. et al.  (2001)
+
+      //-----------------------------------------------------
+      // Stick fraction, Eq. (10) of Zhang L. et al.  (2001)
+      //-----------------------------------------------------
+      Real stickfrac = 1.0;
+      static constexpr Real stickfrac_lowerbnd  = 1.0e-10;  // (BAD CONSTANT) lower bound of stick fraction
+      if (iwet(lt) < 0){
+        stickfrac = haero::max( stickfrac_lowerbnd, haero::exp(-haero::sqrt(stk_nbr)) );
+      }
+
+      //----------------------------------------------------------------------------------
+      // Using the numbers calculated above, compute the quasi-laminar layer resistance
+      // following Zhang L. et al. (2001), Eq. (5)
+      //----------------------------------------------------------------------------------
+      static constexpr Real eps0 = 3.0; // (BAD CONSTANT) empirical parameter $\varepsilon_0$ in Eq. (5) of Zhang L. et al. (2001)
+      const Real rss_lmn = 1.0 / (eps0 * fricvel * stickfrac * (brownian+interception+impaction));
+
+      //--------------------------------------------------------------------
+      // Total resistence and deposition velocity of turbulent deposition,
+      // see Eq. (21) of Zender et al. (2003)
+      //--------------------------------------------------------------------
+      const Real rss_trb = ram1 + rss_lmn + ram1*rss_lmn*vlc_grv;
+      const Real vlc_trb_ontype = 1.0/ rss_trb;
+
+      //--------------------------------------------------------------------------------
+      // Contributions to the single-value bulk deposition velocities of the grid cell
+      //--------------------------------------------------------------------------------
+      vlc_trb_wgtsum = vlc_trb_wgtsum + lnd_frc*( vlc_trb_ontype );
+      vlc_dry_wgtsum = vlc_dry_wgtsum + lnd_frc*( vlc_trb_ontype + vlc_grv );
+
+
     }
+  } // lt=0,n_land_type-1
 
-    //----------------------------------------------------------------------
-    // Collection efficiency of deposition mechanism 3 - impaction
-    //----------------------------------------------------------------------
-    Real stk_nbr = 0.0;
-    if (rc > 0.0) {
-      // vegetated surface
-      stk_nbr = vlc_grv * fricvel / (Constants::gravity * rc);
-    } else {
-      // non-vegetated surface
-      stk_nbr = vlc_grv * fricvel * fricvel /
-                (Constants::gravity * vsc_knm_atm); //  SeP97 p.965
-    }
+  vlc_trb = vlc_trb_wgtsum; 
+  vlc_dry = vlc_dry_wgtsum;
 
-    static constexpr Real beta =
-        2.0; // (BAD CONSTANT) empirical parameter $\beta$ in Eq. (7c) of Zhang
-             // L. et al. (2001)
-    const Real impaction =
-        haero::pow(stk_nbr / (alpha(lt) + stk_nbr),
-                   beta); // Eq. (7c) of Zhang L. et al.  (2001)
-
-    (void)brownian;
-    (void)interception;
-    (void)stk_nbr;
-    (void)impaction;
-  }
-  (void)vsc_dyn_atm;
-  (void)vsc_knm_atm;
-  (void)radius_moment;
-  (void)shm_nbr;
-  (void)vlc_trb_wgtsum;
-  (void)vlc_dry_wgtsum;
 }
 
 } // namespace drydep
