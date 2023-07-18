@@ -180,10 +180,9 @@ Real radius_collector(const int n_land_type) {
 }
 
 KOKKOS_INLINE_FUNCTION
-int iwet(const int n_land_type){
-  const int iwet_array[DryDep::n_land_type] = {-1,  -1,   -1,   -1,   -1,  
-              -1,   1,   -1,    1,   -1,  
-              -1};
+int iwet(const int n_land_type) {
+  const int iwet_array[DryDep::n_land_type] = {-1, -1, -1, -1, -1, -1,
+                                               1,  -1, 1,  -1, -1};
   return iwet_array[n_land_type];
 }
 
@@ -220,7 +219,7 @@ void modal_aero_turb_drydep_velocity(const int moment,
 
     const Real lnd_frc = fraction_landuse[lt];
 
-    if(lnd_frc != 0.0){
+    if (lnd_frc != 0.0) {
       //----------------------------------------------------------------------
       // Collection efficiency of deposition mechanism 1 - Brownian diffusion
       //----------------------------------------------------------------------
@@ -250,69 +249,75 @@ void modal_aero_turb_drydep_velocity(const int moment,
       }
 
       static constexpr Real beta =
-          2.0; // (BAD CONSTANT) empirical parameter $\beta$ in Eq. (7c) of Zhang
-              // L. et al. (2001)
+          2.0; // (BAD CONSTANT) empirical parameter $\beta$ in Eq. (7c) of
+               // Zhang L. et al. (2001)
       const Real impaction =
           haero::pow(stk_nbr / (alpha(lt) + stk_nbr),
-                    beta); // Eq. (7c) of Zhang L. et al.  (2001)
+                     beta); // Eq. (7c) of Zhang L. et al.  (2001)
 
       //-----------------------------------------------------
       // Stick fraction, Eq. (10) of Zhang L. et al.  (2001)
       //-----------------------------------------------------
       Real stickfrac = 1.0;
-      static constexpr Real stickfrac_lowerbnd  = 1.0e-10;  // (BAD CONSTANT) lower bound of stick fraction
-      if (iwet(lt) < 0){
-        stickfrac = haero::max( stickfrac_lowerbnd, haero::exp(-haero::sqrt(stk_nbr)) );
+      static constexpr Real stickfrac_lowerbnd =
+          1.0e-10; // (BAD CONSTANT) lower bound of stick fraction
+      if (iwet(lt) < 0) {
+        stickfrac =
+            haero::max(stickfrac_lowerbnd, haero::exp(-haero::sqrt(stk_nbr)));
       }
 
       //----------------------------------------------------------------------------------
-      // Using the numbers calculated above, compute the quasi-laminar layer resistance
-      // following Zhang L. et al. (2001), Eq. (5)
+      // Using the numbers calculated above, compute the quasi-laminar layer
+      // resistance following Zhang L. et al. (2001), Eq. (5)
       //----------------------------------------------------------------------------------
-      static constexpr Real eps0 = 3.0; // (BAD CONSTANT) empirical parameter $\varepsilon_0$ in Eq. (5) of Zhang L. et al. (2001)
-      const Real rss_lmn = 1.0 / (eps0 * fricvel * stickfrac * (brownian+interception+impaction));
+      static constexpr Real eps0 =
+          3.0; // (BAD CONSTANT) empirical parameter $\varepsilon_0$ in Eq. (5)
+               // of Zhang L. et al. (2001)
+      const Real rss_lmn = 1.0 / (eps0 * fricvel * stickfrac *
+                                  (brownian + interception + impaction));
 
       //--------------------------------------------------------------------
       // Total resistence and deposition velocity of turbulent deposition,
       // see Eq. (21) of Zender et al. (2003)
       //--------------------------------------------------------------------
-      const Real rss_trb = ram1 + rss_lmn + ram1*rss_lmn*vlc_grv;
-      const Real vlc_trb_ontype = 1.0/ rss_trb;
+      const Real rss_trb = ram1 + rss_lmn + ram1 * rss_lmn * vlc_grv;
+      const Real vlc_trb_ontype = 1.0 / rss_trb;
 
       //--------------------------------------------------------------------------------
-      // Contributions to the single-value bulk deposition velocities of the grid cell
+      // Contributions to the single-value bulk deposition velocities of the
+      // grid cell
       //--------------------------------------------------------------------------------
-      vlc_trb_wgtsum = vlc_trb_wgtsum + lnd_frc*( vlc_trb_ontype );
-      vlc_dry_wgtsum = vlc_dry_wgtsum + lnd_frc*( vlc_trb_ontype + vlc_grv );
-
-
+      vlc_trb_wgtsum = vlc_trb_wgtsum + lnd_frc * (vlc_trb_ontype);
+      vlc_dry_wgtsum = vlc_dry_wgtsum + lnd_frc * (vlc_trb_ontype + vlc_grv);
     }
   } // lt=0,n_land_type-1
 
-  vlc_trb = vlc_trb_wgtsum; 
+  vlc_trb = vlc_trb_wgtsum;
   vlc_dry = vlc_dry_wgtsum;
-
 }
 
 //==========================================================================
 // Calculate particle velocity of gravitational settling
 //==========================================================================
 KOKKOS_INLINE_FUNCTION
-void modal_aero_gravit_settling_velocity(const int moment, const Real radius_max, const Real tair,
-const Real pmid, const Real radius_part, const Real density_part, const Real sig_part,
-Real vlc_grv){
+void modal_aero_gravit_settling_velocity(const int moment,
+                                         const Real radius_max, const Real tair,
+                                         const Real pmid,
+                                         const Real radius_part,
+                                         const Real density_part,
+                                         const Real sig_part, Real vlc_grv) {
 
-  const Real vsc_dyn_atm = air_dynamic_viscosity( tair );
-  
-  const Real radius_moment = radius_for_moment(moment, sig_part, radius_part, radius_max);
+  const Real vsc_dyn_atm = air_dynamic_viscosity(tair);
 
-  const Real slp_crc = slip_correction_factor(vsc_dyn_atm, pmid, tair, radius_part);
+  const Real radius_moment =
+      radius_for_moment(moment, sig_part, radius_part, radius_max);
 
-  vlc_grv = gravit_settling_velocity( radius_moment, density_part,
-                                                  slp_crc, vsc_dyn_atm, sig_part);
+  const Real slp_crc =
+      slip_correction_factor(vsc_dyn_atm, pmid, tair, radius_part);
 
+  vlc_grv = gravit_settling_velocity(radius_moment, density_part, slp_crc,
+                                     vsc_dyn_atm, sig_part);
 }
-
 
 } // namespace drydep
 
