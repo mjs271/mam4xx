@@ -663,11 +663,12 @@ void hetfrz_rates_1box(Ensemble *ensemble) {
     auto d_hydrostatic_dp = validation::create_column_view(nlev);
     auto d_cloud_fraction = validation::create_column_view(nlev);
     auto d_updraft_vel_ice_nucleation = validation::create_column_view(nlev);
-    Atmosphere atm(d_temperature, d_pressure, d_vapor_mixing_ratio,
+    Atmosphere atm(nlev, d_temperature, d_pressure, d_vapor_mixing_ratio,
                    d_liquid_mixing_ratio, d_cloud_liquid_number_mixing_ratio,
                    d_ice_mixing_ratio, d_cloud_ice_number_mixing_ratio,
                    d_height, d_hydrostatic_dp, d_cloud_fraction,
                    d_updraft_vel_ice_nucleation, pblh);
+    Surface sfc = mam4::testing::create_surface();
 
     for (int k = 0; k < nlev; ++k) {
       host_column(k) = ast[k];
@@ -690,7 +691,8 @@ void hetfrz_rates_1box(Ensemble *ensemble) {
     Real t = 0.0;
     Kokkos::parallel_for(
         team_policy, KOKKOS_LAMBDA(const ThreadTeam &team) {
-          process.compute_tendencies(team, t, dt, atm, progs, diags, tends);
+          process.compute_tendencies(team, t, dt, atm, sfc, progs, diags,
+                                     tends);
         });
 
     // Copy tendencies hetfrz_immersion_nucleation_tend to host and write to
