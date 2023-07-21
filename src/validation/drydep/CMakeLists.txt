@@ -15,6 +15,7 @@ add_executable(drydep_driver
                radius_for_moment.cpp
                schmidt_number.cpp
                slip_correction_factor.cpp
+               turb_settling_velocity.cpp
                )
 target_link_libraries(drydep_driver skywalker;validation;${HAERO_LIBRARIES})
 
@@ -28,6 +29,7 @@ target_link_libraries(drydep_driver skywalker;validation;${HAERO_LIBRARIES})
 # Run the driver in several configurations to produce datasets.
 
 foreach (input
+          turb_settling_velocity
           gravit_settling_velocity
           air_dynamic_viscosity
           air_kinematic_viscosity
