@@ -459,7 +459,67 @@ void model_aero_depvel_part(const Real fraction_landuse[DryDep::n_land_type],
                                   fricvel, ram1, vlc_grv, vlc_trb, vlc_dry);
 }
 
+//==========================================================================================
+// Calculate deposition velocities caused by turbulent dry deposition and
+// gravitational settling of aerosol particles
+//
+// Reference:
+//  L. Zhang, S. Gong, J. Padro, and L. Barrie:
+//  A size-seggregated particle dry deposition scheme for an atmospheric aerosol
+//  module Atmospheric Environment, 35, 549-560, 2001.
+//
+// History:
+//  - Original version by X. Liu.
+//  - Calculations for gravitational and turbulent dry deposition separated into
+//   different subroutines by Hui Wan, 2023.
+//==========================================================================================
+KOKKOS_INLINE_FUNCTION
+void modal_aero_depvel_part(const Real fraction_landuse[DryDep::n_land_type],
+                            const Real tair, const Real pmid, const Real ram1,
+                            const Real fricvel, const Real radius_part,
+                            const Real density_part, const Real sig_part,
+                            const int moment, Real vlc_dry, Real vlc_trb,
+                            Real vlc_grv) {
+
+  // use a maximum radius of 50 microns when calculating deposition velocity
+  static constexpr Real radius_max = 50.0e-6; //(BAD CONSTANT)
+
+  //------------------------------------------------------------------------------------
+  // Calculate deposition velocity of gravitational settling in all grid layers
+  //------------------------------------------------------------------------------------
+  modal_aero_gravit_settling_velocity(moment, radius_max, tair, pmid,
+                                      radius_part, density_part, sig_part,
+                                      vlc_grv);
+
+  // vlc_dry is just the gravitational settling velocity for now.
+  vlc_dry = vlc_grv;
+
+  //------------------------------------------------------------------------------------
+  // For the lowest model layer:
+  //  - Calculate turbulent dry deposition velocity, vlc_trb.
+  //  - Add vlc_trb to vlc_grv to give the total deposition velocity, vlc_dry.
+  //------------------------------------------------------------------------------------
+
+  modal_aero_turb_drydep_velocity(moment, fraction_landuse, radius_max, tair,
+                                  pmid, radius_part, density_part, sig_part,
+                                  fricvel, ram1, vlc_grv, vlc_trb, vlc_dry);
+}
+
 } // namespace drydep
+
+KOKKOS_INLINE_FUNCTION
+void drydep_diags_for_1_tracer(const Real vlc_dry, const Real vlc_trb,
+                               const Real vlc_grv, Real sflx, Real dep_trb,
+                               Real dep_grv) {
+
+  // apportion dry deposition into turb and gravitational settling for tapes
+  if (vlc_dry != 0.0) {
+    // turbulent dry deposition portion of sflx [kg/m2/s] or [1/m2/s]
+    dep_trb = sflx * vlc_trb / vlc_dry;
+    // gravitational settling   portion of slfx [kg/m2/s] or [1/m2/s]
+    dep_grv = sflx * vlc_grv / vlc_dry;
+  }
+}
 
 } // namespace mam4
 

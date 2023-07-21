@@ -27,7 +27,7 @@ void turb_settling_velocity(Ensemble *ensemble) {
     EKAT_REQUIRE_MSG(input.has("fricvel"), "Required name: fricvel");
     EKAT_REQUIRE_MSG(input.has("ram1"), "Required name: ram1");
     EKAT_REQUIRE_MSG(input.has("vlc_grv"), "Required name: vlc_trb");
-  
+
     auto moment = int(input.get("moment"));
     auto fraction_land_use = input.get_array("fraction_land_use");
     auto radius_max = input.get("radius_max");
@@ -43,11 +43,11 @@ void turb_settling_velocity(Ensemble *ensemble) {
     Real vlc_dry = 0.0;
     Real vlc_trb = 0.0;
 
-    drydep::modal_aero_turb_drydep_velocity(moment, fraction_land_use.data(), radius_max, 
-    tair, pmid, radius_part, density_part, sig_part, fricvel, ram1, vlc_grv, vlc_trb, vlc_dry);
+    drydep::modal_aero_turb_drydep_velocity(
+        moment, fraction_land_use.data(), radius_max, tair, pmid, radius_part,
+        density_part, sig_part, fricvel, ram1, vlc_grv, vlc_trb, vlc_dry);
 
     output.set("vlc_grv", vlc_grv);
     output.set("vlc_trb", vlc_trb);
-
   });
 }
