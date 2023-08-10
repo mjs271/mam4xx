@@ -8,7 +8,7 @@ using namespace mam4;
 
 // Parameterizations used by the drydep process.
 void gravit_settling_velocity(Ensemble *ensemble);
-void turb_settling_velocity(Ensemble *ensemble);
+//void turb_settling_velocity(Ensemble *ensemble);
 void schmidt_number(Ensemble *ensemble);
 void slip_correction_factor(Ensemble *ensemble);
 void air_kinematic_viscosity(Ensemble *ensemble);
@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
       gravit_settling_velocity(ensemble);
     }
     if (func_name == "turb_settling_velocity") {
-      turb_settling_velocity(ensemble);
+      //turb_settling_velocity(ensemble);
     }
     if (func_name == "schmidt_number") {
       schmidt_number(ensemble);
