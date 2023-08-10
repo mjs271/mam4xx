@@ -11,6 +11,8 @@ install(FILES
         convproc.hpp
         gasaerexch.hpp
         gasaerexch_soaexch.hpp
+        gas_chem.hpp
+        gas_chem_mechanism.hpp
         kerminen2002.hpp
         kohler.hpp
         mam4.hpp
@@ -28,6 +30,8 @@ install(FILES
         hetfrz.hpp
         wv_sat_methods.hpp
         drydep.hpp
+        water_uptake.hpp
+        ndrop.hpp
         DESTINATION include/mam4xx)
 
 add_library(mam4xx aero_modes.cpp)
