@@ -56,6 +56,9 @@ public:
 
 namespace drydep {
 
+
+ const static int pver = 72;
+
 //==============================================================================
 // Calculate the radius for a moment of a lognormal size distribution
 //==============================================================================
