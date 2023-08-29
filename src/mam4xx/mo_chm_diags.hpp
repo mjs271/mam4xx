@@ -15,7 +15,12 @@ namespace mo_chm_diags {
 constexpr Real S_molwgt = 32.066;
 // constants for converting O3 mixing ratio to DU
 constexpr Real DUfac = 2.687e20;   // 1 DU in molecules per m^2
+Real rearth  = 6.37122e6;
+Real rgrav = 1.0 / 9.80616; // reciprocal of acceleration of gravity ~ m/s^2
+Real avogadro = haero::Constants::avogadro;
 constexpr int gas_pcnst = gas_chem::gas_pcnst;
+char solsym[gas_pcnst][16];
+
 // number of vertical levels
 constexpr int pver = 72;
 constexpr int pverm = pver - 1;
@@ -61,7 +66,7 @@ void het_diags(Real het_rates[ncol][pver][gas_pcnst], //inout
        }
        
        for(int i = 0; i < ncol; i++) 
-         wrk_wd[i] *= rgrav * wght[i] * haero::pow(rearth, 2);
+         wrk_wd[i] *= rgrav * wght[i] * haero::square(rearth);
 
        if( any(sox_species == mm ) ) {
          for(int i = 0; i < ncol; i++) 
@@ -83,52 +88,76 @@ void chm_diags(int lchnk, int ncol, Real vmr[ncol][pver][gas_pcnst],
                Real pdel[ncol][pver],
                Real pdeldry[ncol][pver][gas_pcnst],
                Real* pbuf, 
-               Real ltrop[pcols] // index of the lowest stratospheric level
+               Real ltrop[pcols], // index of the lowest stratospheric level
+               Real area[ncol],  // NEW input from host model (and output)
+               //output fields
+               Real mass[ncol],
+               Real drymass[ncol],
+               Real ozone_laye[ncol][pver],   // ozone concentration [DU]
+               Real ozone_col[ncol],          // vertical integration of ozone [DU]
+               Real ozone_trop[ncol],         // vertical integration of ozone in troposphere [DU]
+               Real ozone_strat[ncol],        // vertical integration of ozone in stratosphere [DU]
+               Real vmr_nox[ncol][pver], 
+               Real vmr_noy[ncol][pver], 
+               Real vmr_clox[ncol][pver], 
+               Real vmr_cloy[ncol][pver],
+               Real vmr_brox[ncol][pver], 
+               Real vmr_broy[ncol][pver], 
+               Real vmr_toth[ncol][pver],
+               Real mmr_noy[ncol][pver], 
+               Real mmr_sox[ncol][pver], 
+               Real net_chem[ncol][pver],
+               Real df_noy[ncol], 
+               Real df_sox[ncol], 
+               Real df_nhx[ncol],
+               Real mass_bc[ncol][pver], 
+               Real mass_dst[ncol][pver], 
+               Real mass_mom[ncol][pver], 
+               Real mass_ncl[ncol][pver],
+               Real mass_pom[ncol][pver], 
+               Real mass_so4[ncol][pver], 
+               Real mass_soa[ncol][pver]
                ) {
     
     //--------------------------------------------------------------------
     //	... local variables
     //--------------------------------------------------------------------
-    integer     :: icol,kk, mm, nn
-    real(r8)    :: ozone_layer(ncol,pver)   // ozone concentration [DU]
-    real(r8)    :: ozone_col(ncol)          // vertical integration of ozone [DU]
-    real(r8)    :: ozone_trop(ncol)         // vertical integration of ozone in troposphere [DU]
-    real(r8)    :: ozone_strat(ncol)        // vertical integration of ozone in stratosphere [DU]
     
-    real(r8), dimension(ncol,pver) :: vmr_nox, vmr_noy, vmr_clox, vmr_cloy, vmr_tcly, vmr_brox, vmr_broy, vmr_toth
-    real(r8), dimension(ncol,pver) :: mmr_noy, mmr_sox, mmr_nhx, net_chem
-    real(r8), dimension(ncol)      :: df_noy, df_sox, df_nhx
+    Real wgt;
+    char spc_name[16];
+    //Real pointer :: fldcw(:,:)  //working pointer to extract data from pbuf for sum of mass for aerosol classes
+    
 
-    real(r8) :: area(ncol), mass(ncol,pver), drymass(ncol,pver)
-    real(r8) :: wgt
-    character(len=16) :: spc_name
-    real(r8), pointer :: fldcw(:,:)  //working pointer to extract data from pbuf for sum of mass for aerosol classes
-    real(r8), dimension(ncol,pver) :: mass_bc, mass_dst, mass_mom, mass_ncl, mass_pom, mass_so4, mass_soa
 
-    logical :: history_aerosol      // output aerosol variables
-    logical :: history_verbose      // produce verbose history output
+//---------------------------not needed?--------------------------------------------
+    //bool history_aerosol;      // output aerosol variables
+    //bool history_verbose;      // produce verbose history output
 
-    //-----------------------------------------------------------------------
+    //call phys_getopts( history_aerosol_out = history_aerosol, &
+     //                  history_verbose_out = history_verbose )
+//----------------------------------------------------------------------------------
 
-    call phys_getopts( history_aerosol_out = history_aerosol, &
-                       history_verbose_out = history_verbose )
     //--------------------------------------------------------------------
     //	... "diagnostic" groups
     //--------------------------------------------------------------------
-    vmr_nox(:ncol,:) = 0._r8
-    vmr_noy(:ncol,:) = 0._r8
-    vmr_clox(:ncol,:) = 0._r8
-    vmr_cloy(:ncol,:) = 0._r8
-    vmr_tcly(:ncol,:) = 0._r8
-    vmr_brox(:ncol,:) = 0._r8
-    vmr_broy(:ncol,:) = 0._r8
-    vmr_toth(:ncol,:) = 0._r8
-    mmr_noy(:ncol,:) = 0._r8
-    mmr_sox(:ncol,:) = 0._r8
-    mmr_nhx(:ncol,:) = 0._r8
-    df_noy(:ncol) = 0._r8
-    df_sox(:ncol) = 0._r8
-    df_nhx(:ncol) = 0._r8
+    for(int i = 0; i < ncol; i++) {
+       for(int kk = 1; kk < pver; kk++) {
+         vmr_nox[i][kk] = 0;
+         vmr_noy[i][kk] = 0;
+         vmr_clox[i][kk] = 0;
+         vmr_cloy[i][kk] = 0;
+         vmr_tcly[i][kk] = 0;
+         vmr_brox[i][kk] = 0;
+         vmr_broy[i][kk] = 0;
+         vmr_toth[i][kk] = 0;
+         mmr_noy[i][kk] = 0;
+         mmr_sox[i][kk] = 0;
+         mmr_nhx[i][kk] = 0;
+      }
+      df_noy[i] = 0;
+      df_sox[i] = 0;
+      df_nhx[i] = 0;
+    }
 
     // Save the sum of mass mixing ratios for each class instea of individual
     // species to reduce history file size
@@ -143,22 +172,27 @@ void chm_diags(int lchnk, int ncol, Real vmr[ncol][pver][gas_pcnst],
 
     //initialize the mass arrays
     if (history_aerosol .and. .not. history_verbose) then
-       mass_bc(:ncol,:) = 0._r8
-       mass_dst(:ncol,:) = 0._r8
-       mass_mom(:ncol,:) = 0._r8
-       mass_ncl(:ncol,:) = 0._r8
-       mass_pom(:ncol,:) = 0._r8
-       mass_so4(:ncol,:) = 0._r8
-       mass_soa(:ncol,:) = 0._r8
+    for(int i = 0; i < ncol; i++) {
+       for(int kk = 1; kk < pver; kk++) {
+         mass_bc[i][kk] = 0;
+         mass_dst[i][kk] = 0;
+         mass_mom[i][kk] = 0;
+         mass_ncl[i][kk] = 0;
+         mass_pom[i][kk] = 0;
+         mass_so4[i][kk] = 0;
+         mass_soa[i][kk] = 0;
+       }
+    }
     endif
 
-    call get_area_all_p(lchnk, ncol, area)
-    area = area * rearth**2
+    area = area * haero::square(rearth);
 
-    do kk = 1,pver
-       mass(:ncol,kk) = pdel(:ncol,kk) * area(:ncol) * rgrav
-       drymass(:ncol,kk) = pdeldry(:ncol,kk) * area(:ncol) * rgrav
-    enddo
+    for(int i = 0; i < ncol; i++) {
+       for(int kk = 1; kk < pver; kk++) {
+         mass[i][kk] = pdel[i][kk] * area[i] * rgrav;
+         drymass[i][kk] = pdeldry[i][kk] * area[i] * rgrav;
+       }
+    } 
 
     call outfld( 'AREA', area(:ncol),   ncol, lchnk )
     call outfld( 'MASS', mass(:ncol,:), ncol, lchnk )
@@ -167,9 +201,9 @@ void chm_diags(int lchnk, int ncol, Real vmr[ncol][pver][gas_pcnst],
     // convert ozone from mol/mol (w.r.t. dry air mass) to DU
     ozone_layer(:ncol,:) = pdeldry(:ncol,:)*vmr(:ncol,:,id_o3)*avogadro*rgrav/mwdry/DUfac*1.e3_r8
     // total column ozone
-    ozone_col(:) = 0._r8
-    ozone_trop(:) = 0._r8
-    ozone_strat(:) = 0._r8
+    ozone_col(:) = 0;
+    ozone_trop(:) = 0;
+    ozone_strat(:) = 0;
     do icol = 1,ncol
        do kk = 1,pver
           ozone_col(icol) = ozone_col(icol) + ozone_layer(icol,kk)
