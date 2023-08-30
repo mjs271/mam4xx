@@ -25,11 +25,13 @@ char solsym[gas_pcnst][16];
 constexpr int pver = 72;
 constexpr int pverm = pver - 1;
 
+/* will be ported from set_sox
     Real sox_species[3];
     id_so2     = get_spc_ndx( 'SO2' )
     id_so4     = get_spc_ndx( 'SO4' )
     id_h2so4   = get_spc_ndx( 'H2SO4' )
     sox_species = (/ id_so2, id_so4, id_h2so4 /)
+*/
 
 KOKKOS_INLINE_FUNCTION
 void het_diags(Real het_rates[pver][gas_pcnst], //in
@@ -40,7 +42,7 @@ void het_diags(Real het_rates[pver][gas_pcnst], //in
                //Real noy_wk, //output //this isn't actually used in this function?
                Real sox_wk, //output
                //Real nhx_wk, //output //this isn't actually used in this function?
-               Real adv_mass[gas_pcnst] //constant
+               Real adv_mass[gas_pcnst] //constant from elsewhere
                ) {
                   //change to pass values for a single col
     //===========
