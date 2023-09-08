@@ -7,6 +7,8 @@
 #include <mam4xx/gas_chem.hpp>
 
 using Real = haero::Real;
+using View1D = DeviceType::view_1d<Real>;
+using View2D = DeviceType::view_2d<Real>;
 
 namespace mam4 {
 
@@ -29,9 +31,7 @@ constexpr const int gas_pcnst = gas_chemistry::gas_pcnst;
                         "num_a4          "}; //solution system
 */
 // number of vertical levels
-constexpr const int pver = 72;
-constexpr int pverm = pver - 1;
-
+constexpr const int pver = mam4::nlev;
 
 /* will be ported from set_sox
     Real sox_species[3];
@@ -42,16 +42,16 @@ constexpr int pverm = pver - 1;
 */
 
 KOKKOS_INLINE_FUNCTION
-void het_diags(Real het_rates[pver][gas_pcnst], //in
-               Real mmr[pver][gas_pcnst],
-               Real pdel[pver], 
-               Real wght,
-               Real wrk_wd[gas_pcnst], //output
+void het_diags(const View2D &het_rates, //[pver][gas_pcnst], //in
+               const View2D &mmr, //[pver][gas_pcnst],
+               const ColumnView &pdel, //[pver], 
+               Real &wght,
+               View1D &wrk_wd, //[gas_pcnst], //output
                //Real noy_wk, //output //this isn't actually used in this function?
-               Real sox_wk, //output
+               Real &sox_wk, //output
                //Real nhx_wk, //output //this isn't actually used in this function?
-               Real adv_mass[gas_pcnst], //constant from elsewhere
-               Real sox_species[3]
+               Real &adv_mass[gas_pcnst], //constant from elsewhere
+               Real &sox_species[3]
                ) {
                   //change to pass values for a single col
     //===========
@@ -63,18 +63,18 @@ void het_diags(Real het_rates[pver][gas_pcnst], //in
       //
       // compute vertical integral
       //
-      wrk_wd[mm] = 0;
+      wrk_wd(mm) = 0;
       sox_wk = 0;
 
       for(int kk = 1; kk < pver; kk++) {
-         wrk_wd[mm] += het_rates[kk][mm] * mmr[kk][mm] * pdel[kk]; //parallel_reduce in the future?
+         wrk_wd(mm) += het_rates(kk)(mm) * mmr(kk)(mm) * pdel(kk); //parallel_reduce in the future?
       }
          
-      wrk_wd[mm] *= rgrav * wght * haero::square(rearth);
+      wrk_wd(mm) *= rgrav * wght * haero::square(rearth);
 
       for(int i = 0; i < 3; i++) { //FIXME: bad constant (len of sox species)
          if(sox_species[i] == mm)
-            sox_wk += wrk_wd[mm] * S_molwgt / adv_mass[mm]; 
+            sox_wk += wrk_wd(mm) * S_molwgt / adv_mass[mm]; 
       }
    }
 
