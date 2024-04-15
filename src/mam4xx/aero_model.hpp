@@ -579,8 +579,8 @@ void modal_aero_bcscavcoef_init(
     const Real sigmag = sigmag_amode[imode];
     // clang-format off
     // Note: we replaced lspectype_amode and lspectype_amode for
-    // dry_aero_density 
-    // const int ll = lspectype_amode[0][imode]; 
+    // dry_aero_density
+    // const int ll = lspectype_amode[0][imode];
     // const Real rhodryaero = specdens_amode[ll];
     // clang-format on
     const Real rhodryaero = aerosol_dry_density[imode];
@@ -999,6 +999,87 @@ void apportion_sfc_flux_deep(const Real rprddpsum, const Real rprdshsum,
 
   sflxecdp = sflxec * tmpb;
 }
+
+// KOKKOS_INLINE_FUNCTION
+// void aero_model_emissions(state, cam_in) {
+// subroutine aero_model_emissions( state, & // in
+//                                   cam_in ) // inout
+//   use seasalt_model, only: seasalt_emis, marine_organic_emis, seasalt_names, seasalt_indices, seasalt_active,seasalt_nbin, &
+//                             nslt_om
+//   use sslt_sections, only: nsections
+//   use dust_model,    only: dust_emis, dust_names, dust_indices, dust_active,dust_nbin, dust_nnum
+
+//   // Arguments:
+
+//   type(physics_state),    intent(in)    :: state   // Physics state variables
+//   type(cam_in_t),         intent(inout) :: cam_in  // import state
+
+//   // local vars
+
+//   integer :: lchnk, ncol
+//   integer :: ispec, spec_idx
+//   real(r8) :: soil_erod_tmp(pcols)
+//   real(r8) :: sflx(pcols)   // accumulate over all bins for output
+//   real(r8) :: srf_temp(pcols)   // sea surface temperature [K]
+//   real(r8) :: fi(pcols, nsections)        // sea salt number fluxes in each size bin [#/m2/s]
+
+// sea surface temperature [K]
+// Real surface_temp;
+// dstflx
+// ocnfrac
+// cflx
+
+
+//   lchnk = state%lchnk
+//   ncol = state%ncol
+//   srf_temp = cam_in%sst
+
+//   call dust_emis( ncol, lchnk, cam_in%dstflx, & // in
+//                   cam_in%cflx, &                // inout
+//                   soil_erod_tmp )               // out
+
+//   // some dust emis diagnostics ...
+//   sflx(:)=0._r8
+//   do ispec = 1, dust_nbin+dust_nnum
+//       spec_idx = dust_indices(ispec)
+//       if (ispec<=dust_nbin) sflx(:ncol)=sflx(:ncol)+cam_in%cflx(:ncol,spec_idx)
+//       call outfld(trim(dust_names(ispec))//'SF',cam_in%cflx(:,spec_idx),pcols, lchnk)
+//   enddo
+//   call outfld('DSTSFMBL',sflx(:),pcols,lchnk)
+//   call outfld('LND_MBL',soil_erod_tmp(:),pcols, lchnk )
+
+//   call calculate_seasalt_numflux_in_bins(ncol, cam_in%sst, state%u(:ncol,pver), state%v(:ncol,pver),  state%zm(:ncol,pver), & // in
+//                                           fi) // out
+
+//   sflx(:)=0._r8
+
+//   call seasalt_emis(lchnk, ncol, fi, cam_in%ocnfrac, seasalt_emis_scale, &  // in
+//                     cam_in%cflx)                                                              // inout
+
+//   call marine_organic_emis(lchnk, ncol, fi, cam_in%ocnfrac, seasalt_emis_scale, & // in
+//                             cam_in%cflx)                                                             // inout
+
+//   // Write out salt mass fluxes to history files
+//   do ispec = 1, seasalt_nbin-nslt_om
+//       spec_idx = seasalt_indices(ispec)
+//       sflx(:ncol)=sflx(:ncol)+cam_in%cflx(:ncol,spec_idx)
+//       call outfld(trim(seasalt_names(ispec))//'SF',cam_in%cflx(:,spec_idx),pcols,lchnk)
+//   enddo
+//   // accumulated flux
+//   call outfld('SSTSFMBL',sflx(:),pcols,lchnk)
+
+//   // Write out marine organic mass fluxes to history files
+//   sflx(:)=0._r8
+//   do ispec = seasalt_nbin-nslt_om+1, seasalt_nbin
+//       spec_idx = seasalt_indices(ispec)
+//       sflx(:ncol)=sflx(:ncol)+cam_in%cflx(:ncol,spec_idx)
+//       call outfld(trim(seasalt_names(ispec))//'SF',cam_in%cflx(:,spec_idx),pcols,lchnk)
+//   enddo
+
+//   // accumulated flux
+//   call outfld('SSTSFMBL_OM',sflx(:),pcols,lchnk)
+
+// } // end subroutine aero_model_emissions
 
 } // end namespace aero_model
 
