@@ -3,6 +3,7 @@
 
 #include <mam4xx/aging.hpp>
 #include <mam4xx/coagulation.hpp>
+#include <mam4xx/gasaerexch.hpp>
 #include <mam4xx/gas_chem_mechanism.hpp>
 #include <mam4xx/nucleation.hpp>
 #include <mam4xx/rename.hpp>
