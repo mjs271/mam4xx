@@ -12,11 +12,12 @@
 using namespace skywalker;
 using namespace mam4;
 using namespace haero;
-void compute_qsub_from_gcm_and_qsub_of_other_subarea(Ensemble *ensemble) {
+void get_partition_factors(Ensemble *ensemble) {
   ensemble->process([=](const Input &input, Output &output) {
     // Ensemble parameters
     // Declare array of strings for input names
-    std::string input_arrays[] = {};
+    std::string input_arrays[] = {"fcldy", "fclea", "qgcm_cldbrn",
+                                  "qgcm_intrst"};
 
     // Iterate over input_arrays and error if not in input
     for (std::string name : input_arrays) {
@@ -26,47 +27,41 @@ void compute_qsub_from_gcm_and_qsub_of_other_subarea(Ensemble *ensemble) {
       }
     }
 
-    // using mam4::gas_chemistry::extcnt;
-    // using mam4::mo_photo::PhotoTableData;
-    // using mam4::mo_setext::Forcing;
-    // using mam4::mo_setinv::num_tracer_cnst;
+    using View1D = typename DeviceType::view_1d<Real>;
+    using View1DHost = typename HostType::view_1d<Real>;
 
-    // using View2D = DeviceType::view_2d<Real>;
-    // using ConstView2D = DeviceType::view_2d<const Real>;
-    // using View1D = DeviceType::view_1d<Real>;
+    const Real qgcm_intrst = input.get_array("qgcm_intrst")[0];
+    const Real qgcm_cldbrn = input.get_array("qgcm_cldbrn")[0];
+    const Real fcldy = input.get_array("fcldy")[0];
+    const Real fclea = input.get_array("fclea")[0];
 
-    // const Real dt = input.get_array("delt")[0];
-    // const Real rlats;
-    // const View1D cnst_offline_icol[num_tracer_cnst];
-    // const Forcing *forcings_in;
-      // struct Forcing {
-      //   // This index is in Fortran format. i.e. starts in 1
-      //   int frc_ndx;
-      //   bool file_alt_data;
-      //   View1D fields_data[MAX_NUM_SECTIONS];
-      //   int nsectors;
-      // };
-
-
-    const auto linoz_o3_clim_icol_ = input.get_array("linoz_o3_clim")[0];
-    const Real pblh = input.get_array("pblh")[0];
-
-    // const Atmosphere atm = validation::create_atmosphere(nlev, pblh);
-    // mam4::Prognostics progs = validation::create_prognostics(nlev);
-    // const mam4::mo_setsox::Config config_setsox;
-    // mam4::microphysics::AmicPhysConfig config_amicphys;
-
-    const View1D linoz_o3_clim_icol;
+    View1DHost factor_clea_h("factor_clea", 1);
+    View1D factor_clea_d("factor_clea", 1);
+    Kokkos::deep_copy(factor_clea_h, 0.0);
+    Kokkos::deep_copy(factor_clea_d, 0.0);
+    View1DHost factor_cldy_h("factor_cldy", 1);
+    View1D factor_cldy_d("factor_cldy", 1);
+    Kokkos::deep_copy(factor_cldy_h, 0.0);
+    Kokkos::deep_copy(factor_cldy_d, 0.0);
 
     auto team_policy = ThreadTeamPolicy(1u, Kokkos::AUTO);
     Kokkos::parallel_for(
         team_policy, KOKKOS_LAMBDA(const ThreadTeam &team) {
-          // mam4::perform_atmospheric_chemistry_and_microphysics
+          Real factor_clea_in = 0.0;
+          Real factor_cldy_in = 0.0;
+          mam4::microphysics::get_partition_factors(
+              qgcm_intrst, qgcm_cldbrn, fcldy, fclea, factor_clea_in, factor_cldy_in);
+          factor_clea_d(0) = factor_clea_in;
+          factor_cldy_d(0) = factor_cldy_in;
         });
 
+    Kokkos::deep_copy(factor_clea_h, factor_clea_d);
+    Kokkos::deep_copy(factor_cldy_h, factor_cldy_d);
+    const Real factor_clea_out = factor_clea_h(0);
+    const Real factor_cldy_out = factor_cldy_h(0);
 
-    std::vector<Real> cflx_out;
 
-    output.set("cflx", cflx_out);
+    output.set("factor_clea_out", factor_clea_out);
+    output.set("factor_cldy_out", factor_cldy_out);
   });
 }

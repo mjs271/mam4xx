@@ -2028,7 +2028,7 @@ void form_gcm_of_gases_and_aerosols_from_subareas(
                          "Error! form_gcm_of_gases_and_aerosols_from_subareas: "
                          "nsubarea should be < maxsubarea() \n");
 
-  for (int jsub = 1; jsub <= nsubarea; ++jsub) {
+  for (int jsub = 0; jsub < nsubarea; ++jsub) {
     for (int icnst = 0; icnst < gas_pcnst; ++icnst) {
       qgcm[icnst] += qsub[icnst][jsub] * afracsub[jsub];
     }
@@ -2046,7 +2046,7 @@ void form_gcm_of_gases_and_aerosols_from_subareas(
   } else {
     assign_1d_array(gas_pcnst, zero, // in
                     qqcwgcm);        // out
-    for (int jsub = 1; jsub <= nsubarea; ++jsub) {
+    for (int jsub = 0; jsub < nsubarea; ++jsub) {
       for (int icnst = 0; icnst < gas_pcnst; ++icnst) {
         qqcwgcm[icnst] += qqcwsub[icnst][jsub] * afracsub[jsub];
       }

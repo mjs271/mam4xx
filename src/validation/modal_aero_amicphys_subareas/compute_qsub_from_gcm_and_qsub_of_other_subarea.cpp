@@ -75,8 +75,8 @@ void compute_qsub_from_gcm_and_qsub_of_other_subarea(Ensemble *ensemble) {
         team_policy, KOKKOS_LAMBDA(const ThreadTeam &team) {
           Real qsub_a_in[gas_pcnst][subarea_max];
           Real qsub_b_in[gas_pcnst][subarea_max];
-          for (int j = 0, n = 0; j < subarea_max; ++j) {
-            for (int i = 0; i < gas_pcnst; ++i, ++n) {
+          for (int j = 0; j < subarea_max; ++j) {
+            for (int i = 0; i < gas_pcnst; ++i) {
               qsub_a_in[i][j] = qsub_a_d(i, j);
               qsub_b_in[i][j] = qsub_b_d(i, j);
             }
