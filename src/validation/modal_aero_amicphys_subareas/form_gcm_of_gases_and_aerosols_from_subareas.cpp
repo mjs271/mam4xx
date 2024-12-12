@@ -69,7 +69,7 @@ void form_gcm_of_gases_and_aerosols_from_subareas(Ensemble *ensemble) {
       qqcwgcm_old[i] = qqcwgcm_old_[i];
       std::cout << "qqcwgcm_old[i] = " << qqcwgcm_old[i] << "\n";
     }
-    for (int j = 0, n = 0; j < nsubarea_; ++j) {
+    for (int j = 0, n = 0; j < nsubarea; ++j) {
       afracsub[j] = afracsub_[j];
       for (int i = 0; i < gas_pcnst; ++i, ++n) {
         qsub[i][j] = qsub_[n];

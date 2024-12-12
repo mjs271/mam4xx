@@ -13,9 +13,9 @@ add_executable(amicphys_subareas_driver
                compute_qsub_from_gcm_and_qsub_of_other_subarea.cpp
                form_gcm_of_gases_and_aerosols_from_subareas.cpp
                get_partition_factors.cpp
-              #  set_subarea_gases_and_aerosols.cpp
-              #  set_subarea_qmass_for_cldbrn_aerosols.cpp
-              #  set_subarea_qmass_for_intrst_aerosols.cpp
+               set_subarea_gases_and_aerosols.cpp
+               set_subarea_qmass_for_cldbrn_aerosols.cpp
+               set_subarea_qmass_for_intrst_aerosols.cpp
               #  set_subarea_qnumb_for_cldbrn_aerosols.cpp
               #  set_subarea_qnumb_for_intrst_aerosols.cpp
               #  set_subarea_rh.cpp
@@ -39,9 +39,9 @@ set(TEST_LIST
     compute_qsub_from_gcm_and_qsub_of_other_subarea
     form_gcm_of_gases_and_aerosols_from_subareas
     get_partition_factors
-    # set_subarea_gases_and_aerosols
-    # set_subarea_qmass_for_cldbrn_aerosols
-    # set_subarea_qmass_for_intrst_aerosols
+    set_subarea_gases_and_aerosols
+    set_subarea_qmass_for_cldbrn_aerosols
+    set_subarea_qmass_for_intrst_aerosols
     # set_subarea_qnumb_for_cldbrn_aerosols
     # set_subarea_qnumb_for_intrst_aerosols
     # set_subarea_rh
@@ -51,12 +51,12 @@ set(TEST_LIST
 set(DEFAULT_TOL 2e-10)
 
 set(ERROR_THRESHOLDS
-    ${DEFAULT_TOL} # compute_qsub_from_gcm_and_qsub_of_other_subarea
+    1e-14 # compute_qsub_from_gcm_and_qsub_of_other_subarea
     ${DEFAULT_TOL} # form_gcm_of_gases_and_aerosols_from_subareas
-    ${DEFAULT_TOL} # get_partition_factors
-    # ${DEFAULT_TOL} # set_subarea_gases_and_aerosols
-    # ${DEFAULT_TOL} # set_subarea_qmass_for_cldbrn_aerosols
-    # ${DEFAULT_TOL} # set_subarea_qmass_for_intrst_aerosols
+    1e-14 # get_partition_factors
+    3e-10 # set_subarea_gases_and_aerosols
+    ${DEFAULT_TOL} # set_subarea_qmass_for_cldbrn_aerosols
+    5e-10 # set_subarea_qmass_for_intrst_aerosols
     # ${DEFAULT_TOL} # set_subarea_qnumb_for_cldbrn_aerosols
     # ${DEFAULT_TOL} # set_subarea_qnumb_for_intrst_aerosols
     # ${DEFAULT_TOL} # set_subarea_rh

@@ -12,11 +12,16 @@
 using namespace skywalker;
 using namespace mam4;
 using namespace haero;
-void compute_qsub_from_gcm_and_qsub_of_other_subarea(Ensemble *ensemble) {
+void set_subarea_qmass_for_intrst_aerosols(Ensemble *ensemble) {
   ensemble->process([=](const Input &input, Output &output) {
     // Ensemble parameters
     // Declare array of strings for input names
-    std::string input_arrays[] = {};
+    std::string input_arrays[] = {
+        "fcldy",       "fclea",          "jcldy",
+        "jclea",       "lmassptr_amode", "lmassptrcw_amode",
+        "loffset",     "maxsubarea",     "ncnst",
+        "nspec_amode", "ntot_amode",     "qgcm",
+        "qgcmx",       "qqcwgcm",        "qsubx"};
 
     // Iterate over input_arrays and error if not in input
     for (std::string name : input_arrays) {
@@ -26,47 +31,80 @@ void compute_qsub_from_gcm_and_qsub_of_other_subarea(Ensemble *ensemble) {
       }
     }
 
-    // using mam4::gas_chemistry::extcnt;
-    // using mam4::mo_photo::PhotoTableData;
-    // using mam4::mo_setext::Forcing;
-    // using mam4::mo_setinv::num_tracer_cnst;
+    using View2D = typename DeviceType::view_2d<Real>;
+    using View2DHost = typename HostType::view_2d<Real>;
 
-    // using View2D = DeviceType::view_2d<Real>;
-    // using ConstView2D = DeviceType::view_2d<const Real>;
-    // using View1D = DeviceType::view_1d<Real>;
+    using mam4::gas_chemistry::gas_pcnst;
+    constexpr int subarea_max = microphysics::maxsubarea();
 
-    // const Real dt = input.get_array("delt")[0];
-    // const Real rlats;
-    // const View1D cnst_offline_icol[num_tracer_cnst];
-    // const Forcing *forcings_in;
-      // struct Forcing {
-      //   // This index is in Fortran format. i.e. starts in 1
-      //   int frc_ndx;
-      //   bool file_alt_data;
-      //   View1D fields_data[MAX_NUM_SECTIONS];
-      //   int nsectors;
-      // };
+    const auto ncnst_ = input.get_array("ncnst")[0];
+    const int ncnst = ncnst_;
+    EKAT_ASSERT(ncnst == gas_pcnst);
 
+    const auto jclea_ = input.get_array("jclea")[0];
+    const auto jcldy_ = input.get_array("jcldy")[0];
+    const auto fclea = input.get_array("fclea")[0];
+    const auto fcldy = input.get_array("fcldy")[0];
+    const auto qgcm_ = input.get_array("qgcm");
+    const auto qqcwgcm_ = input.get_array("qqcwgcm");
+    const auto qgcmx_ = input.get_array("qgcmx");
+    const auto qsubx_ = input.get_array("qsubx");
 
-    const auto linoz_o3_clim_icol_ = input.get_array("linoz_o3_clim")[0];
-    const Real pblh = input.get_array("pblh")[0];
+    const int jclea = jclea_;
+    const int jcldy = jcldy_;
 
-    // const Atmosphere atm = validation::create_atmosphere(nlev, pblh);
-    // mam4::Prognostics progs = validation::create_prognostics(nlev);
-    // const mam4::mo_setsox::Config config_setsox;
-    // mam4::microphysics::AmicPhysConfig config_amicphys;
+    Real qgcm[gas_pcnst];
+    Real qqcwgcm[gas_pcnst];
+    Real qgcmx[gas_pcnst];
 
-    const View1D linoz_o3_clim_icol;
+    for (int i = 0; i < gas_pcnst; ++i) {
+      qgcm[i] = qgcm_[i];
+      qqcwgcm[i] = qqcwgcm_[i];
+      qgcmx[i] = qgcmx_[i];
+    }
+
+    View2DHost qsubx_h("qsubx", gas_pcnst, subarea_max);
+    View2D qsubx_d("qsubx", gas_pcnst, subarea_max);
+    Kokkos::deep_copy(qsubx_h, 0.0);
+    Kokkos::deep_copy(qsubx_d, 0.0);
+
+    for (int j = 1, k = 0; j < subarea_max; ++j) {
+      for (int i = 0; i < gas_pcnst; ++i, ++k) {
+        qsubx_h(i, j) = qsubx_[k];
+      }
+    }
+    Kokkos::deep_copy(qsubx_d, qsubx_h);
 
     auto team_policy = ThreadTeamPolicy(1u, Kokkos::AUTO);
     Kokkos::parallel_for(
         team_policy, KOKKOS_LAMBDA(const ThreadTeam &team) {
-          // mam4::perform_atmospheric_chemistry_and_microphysics
+          Real qsubx[gas_pcnst][subarea_max] = {{0.0}};
+          for (int j = 0; j < subarea_max; ++j) {
+            for (int i = 0; i < gas_pcnst; ++i) {
+              qsubx[i][j] = qsubx_d(i, j);
+            }
+          }
+          mam4::microphysics::set_subarea_qmass_for_intrst_aerosols(
+              jclea, jcldy, fclea, fcldy, qgcm, qqcwgcm, qgcmx, qsubx);
+          for (int j = 0; j < subarea_max; ++j) {
+            for (int i = 0; i < gas_pcnst; ++i) {
+              qsubx_d(i, j) = qsubx[i][j];
+            }
+          }
         });
 
+    Kokkos::deep_copy(qsubx_h, qsubx_d);
+    std::vector<Real> qsubx_out;
 
-    std::vector<Real> cflx_out;
+    // NOTE: we go j = [1, 3) here due to the weird indexing convention in
+    // microphysics::set_subarea_gases_and_aerosols(), which may be changed in
+    // the future
+    for (int j = 1; j < subarea_max; ++j) {
+      for (int i = 0; i < gas_pcnst; ++i) {
+        qsubx_out.push_back(qsubx_h(i, j));
+      }
+    }
 
-    output.set("cflx", cflx_out);
+    output.set("qsubx", qsubx_out);
   });
 }

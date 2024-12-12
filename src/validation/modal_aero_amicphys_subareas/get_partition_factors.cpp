@@ -61,7 +61,7 @@ void get_partition_factors(Ensemble *ensemble) {
     const Real factor_cldy_out = factor_cldy_h(0);
 
 
-    output.set("factor_clea_out", factor_clea_out);
-    output.set("factor_cldy_out", factor_cldy_out);
+    output.set("factor_clea", factor_clea_out);
+    output.set("factor_cldy", factor_cldy_out);
   });
 }

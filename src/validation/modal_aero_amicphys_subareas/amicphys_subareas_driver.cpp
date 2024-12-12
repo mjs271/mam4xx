@@ -26,9 +26,9 @@ using namespace mam4;
 void compute_qsub_from_gcm_and_qsub_of_other_subarea(Ensemble *ensemble);
 void form_gcm_of_gases_and_aerosols_from_subareas(Ensemble *ensemble);
 void get_partition_factors(Ensemble *ensemble);
-// void set_subarea_gases_and_aerosols(Ensemble *ensemble);
-// void set_subarea_qmass_for_cldbrn_aerosols(Ensemble *ensemble);
-// void set_subarea_qmass_for_intrst_aerosols(Ensemble *ensemble);
+void set_subarea_gases_and_aerosols(Ensemble *ensemble);
+void set_subarea_qmass_for_cldbrn_aerosols(Ensemble *ensemble);
+void set_subarea_qmass_for_intrst_aerosols(Ensemble *ensemble);
 // void set_subarea_qnumb_for_cldbrn_aerosols(Ensemble *ensemble);
 // void set_subarea_qnumb_for_intrst_aerosols(Ensemble *ensemble);
 // void set_subarea_rh(Ensemble *ensemble);
@@ -62,14 +62,14 @@ int main(int argc, char **argv) {
       form_gcm_of_gases_and_aerosols_from_subareas(ensemble);
     } else if (func_name == "get_partition_factors") {
       get_partition_factors(ensemble);
+    } else if (func_name == "set_subarea_gases_and_aerosols") {
+      set_subarea_gases_and_aerosols(ensemble);
+    } else if (func_name == "set_subarea_qmass_for_cldbrn_aerosols") {
+      set_subarea_qmass_for_cldbrn_aerosols(ensemble);
+    } else if (func_name == "set_subarea_qmass_for_intrst_aerosols") {
+      set_subarea_qmass_for_intrst_aerosols(ensemble);
     }
-    // else if (func_name == "set_subarea_gases_and_aerosols") {
-    //   set_subarea_gases_and_aerosols(ensemble);
-    // } else if (func_name == "set_subarea_qmass_for_cldbrn_aerosols") {
-    //   set_subarea_qmass_for_cldbrn_aerosols(ensemble);
-    // } else if (func_name == "set_subarea_qmass_for_intrst_aerosols") {
-    //   set_subarea_qmass_for_intrst_aerosols(ensemble);
-    // } else if (func_name == "set_subarea_qnumb_for_cldbrn_aerosols") {
+    // else if (func_name == "set_subarea_qnumb_for_cldbrn_aerosols") {
     //   set_subarea_qnumb_for_cldbrn_aerosols(ensemble);
     // } else if (func_name == "set_subarea_qnumb_for_intrst_aerosols") {
     //   set_subarea_qnumb_for_intrst_aerosols(ensemble);
